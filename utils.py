@@ -12,13 +12,14 @@ def load_agents(file_path):
             name=agent_data['name'],
             age=agent_data['age'],
             traits=agent_data['traits'],
-            status=agent_data['status']
+            status=agent_data['status'],
+            environment=data['environment']
         )
         for memory in agent_data['initial_memory']:
             agent.add_memory(memory)
         agents.append(agent)
     
-    return agents, data['original_topic'], data['total_round']
+    return agents, data['original_topic'], data['total_round'], data['environment']
 
 def save_results(file_path, results):
     try:

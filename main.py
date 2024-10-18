@@ -163,7 +163,7 @@ class UDPReceiver:
         sock.close()
 
 async def main():
-    agents, topic, total_rounds = load_agents('data/raw_data.json')
+    agents, topic, total_rounds, env = load_agents('data/raw_data.json')
     chat = RoundTableChat(agents, topic, total_rounds)
     
     # Create and start the UDP receiver
