@@ -15,6 +15,7 @@ EMAIL TEXT: "Project Brief: Stakeholder Investigation for Future City Developmen
 *[Split screen showing Sarah's worried expression and her thoughts]*
 
 NARRATOR: "While the task seems straightforward, Sarah knows she needs to consider multiple perspectives and stakeholders. But where to start?"
+maybe add sarah tried some existing AI tools but failed to get insightful ideas
 
 ## Scene 4: Discovering the Solution
 *[Screen showing the application interface]*
