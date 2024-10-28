@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detailed Smart City Development Analysis - Combined Results</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        .round {
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .topic {
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 10px;
+            height: 100px; /* Set a fixed height */
+            overflow-y: auto; /* Enable vertical scrolling if content overflows */
+            padding: 10px;
+            background-color: #f0f8ff; /* Light blue background for visibility */
+            border-radius: 5px;
+        }
+        .proposal {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            height: 300px; /* Adjust this value as needed */
+        }
+        .proposal-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .quote {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-left: 3px solid #2c3e50;
+            flex-grow: 1;
+            overflow-y: auto;
+        }
+        .current-topic {
+            background-color: #a8e6cf;
+        }
+        .next-topic {
+            background-color: #ffb347;
+        }
+        .comparison {
+            display: flex;
+            justify-content: space-between;
+        }
+        .data-out, .data-out-1 {
+            width: 48%;
+        }
+        .environment-comparison {
+            margin-bottom: 2em;
+            padding: 1em;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+        }
+
+        .environment-comparison h2 {
+            text-align: center;
+            margin-bottom: 1em;
+        }
+
+        .environment-comparison .comparison {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .environment-comparison .data-out,
+        .environment-comparison .data-out-1 {
+            width: 48%;
+            padding: 1em;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .environment-comparison h3 {
+            margin-top: 0;
+        }
+
+        /* Add new styles for pre/after links */
+        .pre-link {
+            background-color: #ffeb3b;  /* Yellow highlight */
+            padding: 2px;
+        }
+        
+        .after-link {
+            background-color: #81c784;  /* Green highlight */
+            padding: 2px;
+        }
+
+        /* Add styles for file upload area */
+        .file-upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: border 0.3s ease;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #2196F3;
+            background-color: rgba(33, 150, 243, 0.1);
+        }
+
+        .file-upload-area p {
+            margin: 0;
+            color: #666;
+        }
+
+        /* Hide default file input appearance */
+        #fileInput {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Detailed Smart City Development Analysis - Combined Results</h1>
+
+    <!-- File upload area -->
+    <div class="file-upload-area" id="dropZone">
+        <p>Drag and drop your JSON file here</p>
+        <p>or</p>
+        <p><label for="fileInput">Click to select file</label></p>
+        <input type="file" id="fileInput" accept=".json" multiple> <!-- Allow multiple files -->
+    </div>
+
+    <!-- Dynamic environment container -->
+    <div id="environment-container">
+        <!-- Will be populated when files are uploaded -->
+    </div>
+
+    <div id="rounds-container">
+        <!-- Rounds will be populated here -->
+    </div>
+
+    <script>
+        // Keep track of loaded environments
+        const loadedEnvironments = new Map();
+
+        function handleFileSelect(files) {
+            // Convert FileList to Array for easier handling
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                
+                reader.onload = function(event) {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        loadedEnvironments.set(file.name, data);
+                        updateEnvironmentDisplay();
+                        displayData(data);
+                    } catch (error) {
+                        console.error('Error parsing JSON:', error);
+                        alert(`Error parsing JSON file ${file.name}. Please make sure it's a valid JSON file.`);
+                    }
+                };
+                
+                reader.readAsText(file);
+            });
+        }
+
+        function updateEnvironmentDisplay() {
+            const container = document.getElementById('environment-container');
+            
+            if (loadedEnvironments.size === 0) {
+                container.innerHTML = ''; // Clear if no files
+                return;
+            }
+
+            // Create environment comparison section
+            container.innerHTML = `
+                <div class="environment-comparison">
+                    <h2>Environment Comparison</h2>
+                    <div class="comparison" style="display: grid; grid-template-columns: repeat(${Math.min(loadedEnvironments.size, 3)}, 1fr); gap: 20px;">
+                        ${Array.from(loadedEnvironments.entries()).map(([filename, data]) => `
+                            <div class="data-out">
+                                <h3>${data.environment ? 'Environment: ' + data.environment.split('\n')[0] : filename}</h3>
+                                <div class="environment-content">
+                                    ${formatEnvironment(data.environment)}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function formatEnvironment(environment) {
+            if (!environment) return 'No environment description available';
+            return environment.split('\n').map(line => `<p>${line}</p>`).join('');
+        }
+
+        // Display data function
+        function displayData(data) {
+            const roundsContainer = document.getElementById('rounds-container');
+            roundsContainer.innerHTML = ''; // Clear existing content
+            
+            data.runtime.forEach((round, index) => {
+                const roundDiv = document.createElement('div');
+                roundDiv.className = 'round';
+                
+                roundDiv.innerHTML = `
+                    <h2>Round ${index}</h2>
+                    <div class="comparison">
+                        <div class="data-out">
+                            <div class="topic">${round.topic.text}</div>
+                            ${round.proposals.map((proposal, pIndex) => `
+                                <div class="proposal">
+                                    <div class="proposal-title">Proposal ${pIndex + 1}:</div>
+                                    <div class="quote">
+                                        ${highlightLinks(proposal.text, proposal.pre_link, proposal.after_link)}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                roundsContainer.appendChild(roundDiv);
+            });
+        }
+
+        function highlightLinks(text, preLink, afterLink) {
+            if (!text) return '';
+            
+            let highlightedText = text;
+            
+            if (preLink) {
+                highlightedText = highlightedText.replace(
+                    preLink,
+                    `<span class="pre-link">${preLink}</span>`
+                );
+            }
+            
+            if (afterLink) {
+                highlightedText = highlightedText.replace(
+                    afterLink,
+                    `<span class="after-link">${afterLink}</span>`
+                );
+            }
+            
+            return highlightedText;
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropZone = document.getElementById('dropZone');
+            const fileInput = document.getElementById('fileInput');
+
+            // Drag and drop handlers
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                handleFileSelect(files);
+            });
+
+            // Click to upload handler
+            fileInput.addEventListener('change', (e) => {
+                const files = e.target.files;
+                if (files.length > 0) {
+                    handleFileSelect(files);
+                }
+            });
+
+            // Make the whole drop zone clickable
+            dropZone.addEventListener('click', () => {
+                fileInput.click();
+            });
+        });
+    </script>
+</body>
+</html>

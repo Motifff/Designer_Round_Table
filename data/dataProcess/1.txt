@@ -1,0 +1,316 @@
+--表1 获取相关video相关属性
+create table if not exists dim_aigc_video_inputs_vid_info_df (
+inputs_id varchar
+,vid varchar
+,video_id bigint
+,avatar_id bigint
+,aid bigint
+,item_id bigint
+,shop_id bigint
+,script varchar
+,item_url varchar
+,script_en varchar
+,script_cn varchar
+,storyline_tag varchar
+,template_id bigint
+,sdk_template varchar
+   ,grass_date date
+   ,grass_region varchar
+) with (format = 'ORC'
+,partitioned_by = array['grass_date','grass_region']);
+delete from dim_aigc_video_inputs_vid_info_df where grass_date = ${L1D_Date} and grass_region='ID';
+insert into dim_aigc_video_inputs_vid_info_df
+
+
+select distinct
+t1.inputs_id
+,t2.vid
+,t3.video_id
+,t2.avatar_id
+,t2.aid --bgm信息
+,t1.item_id
+,t1.shop_id
+,t1.script
+,CONCAT('https://shopee.co.id/product/',CAST(t1.shop_id AS varchar),'/',CAST(t1.item_id AS varchar))  item_url
+,json_format(json_extract(t1.script,'$.script_en')) script_en
+,json_format(json_extract(t1.script,'$.script_cn')) script_cn
+,json_format(JSON_EXTRACT(t1.extra_info,'$.storyline.script_tag')) as  storyline_tag
+,t2.template_id--10.09新增
+,json_format(JSON_EXTRACT(t2.extra_info,'$.sdk_template')) as  sdk_template--10.09新增
+, ${L1D_Date} as grass_date
+,'ID' as grass_region
+from
+(select inputs_id,item_id,shop_id,script,extra_info
+from mpi_cv.pipeline_item_aigc_clip_input_di
+where   grass_region='ID' ) t1
+left join
+(
+   select *--inputs_id,vid,avatar_id
+    from mpi_cv.dim_aigc_video_feature
+where  grass_region='ID' ) t2
+--获取shopid，sript信息
+on t1.inputs_id =t2.inputs_id
+left join
+(
+  select  video_id,video_file_id
+  from video.video_mart_ads_bi_video_info_extend_1d
+   where grass_date=${L1D_Date} and grass_region='ID' and tz_type='local'
+   group by video_id,video_file_id
+) t3
+on t2.vid=t3.video_file_id
+
+
+--表2 bgm的代码  
+with t_order_1003 as
+(
+   select
+       grass_region,
+       grass_date,
+       order_id  
+                     
+   from mp_content_oa.dwd_video_order_omni_local_content_direct_final_detail_di
+   where grass_date >= date'2024-09-19' and grass_date <= date'2024-09-24'
+   and tz_type='local'
+   and grass_region in ('ID')
+   and json_extract_scalar(click_video_property, '$.business_id') in ('1003','1019')                        
+   group by 1,2,3
+)
+                                                   
+                                                           
+,item_info as
+(
+   select
+item_id,
+          
+level1_global_be_category,
+level2_global_be_category
+from mp_item.dim_item__reg_s0_live
+where grass_date = date'2024-09-24'                                   
+and grass_region = 'ID'
+and tz_type = 'local'
+)
+
+
+,video_perfomance as(
+select
+   grass_date,
+   grass_region,
+             
+   video_id,
+   sv_source_page,
+                  
+          
+   sum(watch_time_ms)*1.0000/1000 as staytime_video_sec,
+   sum(vv) as vv,
+   sum(cvv) as cvv,
+   sum(vv_product) as vv_product,        
+   sum(product_clk) as product_clk,         
+   sum(order_video) as order_video,         
+   sum(gmv_usd_video) as gmv_usd_video,       
+   sum(order_video)*1.0000 / sum(vv_product) as co,          
+   sum(product_clk)*1.0000 / sum(vv_product) as ctr,
+   sum(order_video)*1.0000 / sum(product_clk) as cr
+from 
+   (                        
+              
+       select
+           grass_date,
+           grass_region,
+           content_id as video_id,
+           sv_source_page,
+                         
+           sum(video_play_cnt_ntl_1d) AS vv, 
+           sum(complete_80_percent_video_view_cnt_ntl_1d) as cvv,
+           sum(if(is_has_product_display=1, video_play_cnt_ntl_1d, 0)) as vv_product,
+           sum(video_view_duration_ntl_1d) AS watch_time_ms,
+           sum(event_all_ec_click_pv_1d) AS product_clk,
+           sum(if(is_item_ads=1,video_play_cnt_ntl_1d,0)) as vv_ads,                       
+           sum(if(is_item_ads=1,event_all_ec_click_pv_1d,0)) as product_clk_ads,
+           0 as order_video,
+           0 as gmv_usd_video,
+           0 as order_video_ads,
+           0 as gmv_usd_video_ads
+       from video.video_mart_ads_bi_content_userid_cp_fs_ssp_vft_1d                
+       where grass_region in ('ID')
+       and grass_date >= date'2024-09-19' and grass_date <= date'2024-09-24'
+                                                          
+       group by 1,2,3,4
+
+
+       union all
+
+
+               
+      select
+           grass_date,
+           grass_region,
+           content_id as video_id,
+           sv_source_page,
+                         
+           sum(event_minils_play_vv_1d) AS vv,
+           0 as cvv,
+           0 as vv_product,
+           sum(minils_watch_duration_1d) AS watch_time_ms,
+           0 AS product_clk,
+           0 as vv_ads,
+           0 as product_clk_ads,
+           0 as order_video,
+           0 as gmv_usd_video,
+           0 as order_video_ads,
+           0 as gmv_usd_video_ads
+       from video.video_mart_dws_ls_content_minils_userid_cp_ssp_vft_aggr_1d
+       where grass_date >= date'2024-09-19' and grass_date <= date'2024-09-24'
+       and grass_region in ('ID')
+                                                          
+       group by 1,2,3,4 
+
+
+       union all
+
+
+                      
+       select
+           a.grass_date,
+           a.grass_region,
+           a.video_id,
+           json_extract_scalar(click_data, '$.params.sv_source_page') as sv_source_page,
+                           
+           0 as vv,
+           0 as cvv,
+           0 as vv_product,
+           0 as watch_time_ms,
+           0 as product_clk,
+           0 as vv_ads,
+           0 as product_clk_ads,
+           sum(video_order_fraction) as order_video,
+           sum(gmv_usd) as gmv_usd_video,
+           sum(if(JSON_EXTRACT_SCALAR(click_common_property,'$.is_ads')='true' and is_content_directly_related=1,video_order_fraction,0)) as order_video_ads,
+           sum(if(JSON_EXTRACT_SCALAR(click_common_property,'$.is_ads')='true' and is_content_directly_related=1,gmv_usd,0)) as gmv_usd_video_ads
+       from mp_content_oa.dwd_video_order_omni_local_content_direct_final_detail_di a
+       join t_order_1003 b
+       on a.grass_region = b.grass_region and a.grass_date = b.grass_date and a.order_id = b.order_id                                     
+       where a.grass_date >= date'2024-09-19' and a.grass_date <= date'2024-09-24'
+                                                                                                       
+       group by 1,2,3,4
+   ) a
+group by 1,2,3,4
+)
+  
+,video_info as           
+(select
+grass_date
+,video_source
+,video_id
+,post_date
+             
+from video.video_mart_dim_video
+where
+grass_region in ('ID')
+and tz_type = 'local'
+and grass_date = date'2024-09-24'                                                                                          
+group by 1, 2, 3,4)
+
+
+,video_first_item as
+(select
+   video_id,
+   case
+       when try(is_has_product_list_display[1].is_display) > 0 then is_has_product_list_display[1].item_id
+       when try(is_has_product_list_display[2].is_display) > 0 then is_has_product_list_display[2].item_id
+       when try(is_has_product_list_display[3].is_display) > 0 then is_has_product_list_display[3].item_id
+       when try(is_has_product_list_display[4].is_display) > 0 then is_has_product_list_display[4].item_id
+       when try(is_has_product_list_display[5].is_display) > 0 then is_has_product_list_display[5].item_id
+       else try(is_has_product_list_display[6].item_id) end as first_item_id
+from video.video_mart_dim_video_label_df
+where grass_date = date'2024-09-24'
+and grass_region = 'ID'
+and is_has_product_display = 1)
+
+
+
+
+
+
+
+,result as (
+select
+   t1.grass_region,
+   t1.video_id,
+                    
+   t1.sv_source_page,          
+   video_source,
+   case when t3.video_source=5 then 'AIGC' else 'UGC' end video_type,
+   cast(t3.post_date as date) post_date,
+   case when DATE_DIFF('day',cast(t3.post_date as date),cast(t1.grass_date as date))>=0 and DATE_DIFF('day',cast(t3.post_date as date),cast(t1.grass_date as date))<3 then 1 else 0 end post_3d,
+   t4.first_item_id  item_id,
+   t5.level1_global_be_category,
+             
+   vv,
+   cvv,             
+   product_clk clk,
+   order_video,
+   JSON_EXTRACT(t6.storyline_tag,'$[0]') storyline_tag,
+   t6.avatar_id,
+   case when t6.avatar_id>0 then 1 else 0 end if_avatar,       
+   t6.shop_id,
+   t6.script_cn,
+   t6.script_en,
+   t6.aid,
+   t6.item_url,
+   t1.grass_date
+from video_perfomance t1
+                             
+                           
+left join video_info t3
+on t1.video_id=t3.video_id                                                                       
+left join video_first_item t4
+on t1.video_id=t4.video_id
+left join item_info t5
+on cast(t4.first_item_id as bigint)=cast(t5.item_id as bigint)
+left join
+(select * from dim_aigc_video_inputs_vid_info_dzf where grass_date=date'2024-09-24') t6
+on t1.video_id=t6.video_id
+where cast(t3.post_date as date) between  date'2024-09-19' and date'2024-09-24'               
+)
+                               
+select coalesce(d1.video_type,d2.video_type) as video_type,coalesce(d1.aid,d2.aid) as aid
+,vv,clk,cv_rate,order_per_video,video_with_order_rate,rate    
+                           
+,video_cnt,order_video,video_cnt_with_order         
+ from
+(
+--bgm代码区分
+select video_type,aid,count(distinct video_id) as video_cnt,sum(vv) vv,sum(clk) clk, case when sum(vv)>0 then  1.000*sum(cvv)/sum(vv) end cv_rate,case when count(distinct video_id)>0 then 1.000*sum(order_video)/count(distinct video_id) end order_per_video
+,1.000*count( distinct case when order_video>0 then video_id end)/count(distinct video_id) video_with_order_rate                    
+                                                                                               
+,count( distinct case when order_video>0 then video_id end) video_cnt_with_order
+,sum(order_video) order_video
+from result
+group by video_type,aid
+  
+) d1
+full join
+(
+
+
+select video_type,aid,sum(vv_3d_100 ) cnt1,sum(new_video) cnt2,case when sum(new_video)>0 then 1.000*sum(vv_3d_100 )/sum(new_video) end rate    
+from
+(
+select
+distinct grass_region,video_id,video_type,aid,new_video,case when vv_3d>100 then 1 else 0 end vv_3d_100
+from (
+select grass_date,grass_region,video_id,video_type,aid
+,case when cast(post_date as date) between date'2024-09-19' and date'2024-09-22' then 1 else 0 end new_video         
+,sum(case when post_3d=1 then vv end) over(partition by video_id) vv_3d           
+from result
+)
+where new_video=1
+)
+group by video_type,aid
+) d2
+on d1.video_type=d2.video_type and d1.aid=d2.aid
+
+
+
+
+order by aid,video_type;

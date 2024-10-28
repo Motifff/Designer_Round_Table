@@ -97,7 +97,7 @@ class RoundTableChat:
         print(colored(f"Round {self.current_round} completed\n", "cyan"))
 
         # Generate new topic
-        new_topic_prompt = f"Based on the winning proposal: '{winning_proposal}', generate a new topic for the next round of discussion about future cities. Respond with only the new topic."
+        new_topic_prompt = f"Here is what happend in the previous round: {round_result}. Based on the winning proposal: '{winning_proposal}', generate a new topic for the next round of discussion about future cities. Respond with only the new topic."
         self.topic = self.agents[0].generate_response(new_topic_prompt)
 
     async def run_chat(self):
